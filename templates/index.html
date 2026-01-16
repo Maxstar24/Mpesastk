@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+
+{% block title %}Home - M-Pesa STK Push{% endblock %}
+
+{% block content %}
+<h2 style="margin-bottom: 20px; color: #333;">Initiate Payment</h2>
+
+{% if not is_configured %}
+<div class="alert alert-warning">
+    ⚠️ Please configure your M-Pesa credentials in <a href="{{ url_for('settings') }}" style="color: #856404; text-decoration: underline;">Settings</a> first.
+</div>
+{% endif %}
+
+<form id="stkForm">
+    <div class="form-group">
+        <label for="phone_number">Phone Number *</label>
+        <input type="tel" id="phone_number" name="phone_number" placeholder="254712345678 or 0712345678" required {% if not is_configured %}disabled{% endif %}>
+        <div class="help-text">Enter phone number in format 254XXXXXXXXX or 07XXXXXXXX</div>
+    </div>
+
+    <div class="form-group">
+        <label for="amount">Amount (KES) *</label>
+        <input type="number" id="amount" name="amount" placeholder="100" min="1" required {% if not is_configured %}disabled{% endif %}>
+        <div class="help-text">Minimum amount is KES 1</div>
+    </div>
+
+    <div class="form-group">
+        <label for="account_reference">Account Reference</label>
+        <input type="text" id="account_reference" name="account_reference" placeholder="Payment" value="Payment" {% if not is_configured %}disabled{% endif %}>
+        <div class="help-text">Reference for this transaction</div>
+    </div>
+
+    <div class="form-group">
+        <label for="transaction_desc">Transaction Description</label>
+        <input type="text" id="transaction_desc" name="transaction_desc" placeholder="Payment" value="Payment" {% if not is_configured %}disabled{% endif %}>
+        <div class="help-text">Description for this transaction</div>
+    </div>
+
+    <button type="submit" id="submitBtn" {% if not is_configured %}disabled{% endif %}>
+        Send STK Push
+    </button>
+</form>
+
+<div class="loading" id="loading">
+    <div class="spinner"></div>
+    <p style="margin-top: 10px;">Processing payment request...</p>
+</div>
+
+<div id="result" style="margin-top: 20px;"></div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.getElementById('stkForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const submitBtn = document.getElementById('submitBtn');
+    const loading = document.getElementById('loading');
+    const resultDiv = document.getElementById('result');
+    
+    // Disable button and show loading
+    submitBtn.disabled = true;
+    loading.classList.add('show');
+    resultDiv.innerHTML = '';
+    
+    // Get form data
+    const formData = new FormData(this);
+    
+    try {
+        const response = await fetch('{{ url_for("stk_push") }}', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        // Hide loading
+        loading.classList.remove('show');
+        
+        if (data.success) {
+            resultDiv.innerHTML = `
+                <div class="alert alert-success">
+                    ✅ ${data.message}
+                    ${data.data ? `
+                        <div style="margin-top: 10px; font-size: 14px;">
+                            <strong>Details:</strong><br>
+                            Merchant Request ID: ${data.data.merchant_request_id || 'N/A'}<br>
+                            Checkout Request ID: ${data.data.checkout_request_id || 'N/A'}<br>
+                            ${data.data.customer_message || ''}
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+            // Reset form
+            this.reset();
+            document.getElementById('account_reference').value = 'Payment';
+            document.getElementById('transaction_desc').value = 'Payment';
+        } else {
+            resultDiv.innerHTML = `
+                <div class="alert alert-error">
+                    ❌ ${data.message}
+                </div>
+            `;
+        }
+    } catch (error) {
+        loading.classList.remove('show');
+        resultDiv.innerHTML = `
+            <div class="alert alert-error">
+                ❌ Error: ${error.message}
+            </div>
+        `;
+    } finally {
+        submitBtn.disabled = false;
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}Settings - M-Pesa STK Push{% endblock %}
+
+{% block content %}
+<h2 style="margin-bottom: 20px; color: #333;">M-Pesa Configuration</h2>
+
+<div class="alert alert-warning" style="margin-bottom: 20px;">
+    ℹ️ <strong>Note:</strong> These credentials will be saved locally in a config.json file. For production, consider using environment variables and secure storage.
+</div>
+
+<form method="POST">
+    <div class="form-group">
+        <label for="consumer_key">Consumer Key *</label>
+        <input type="text" id="consumer_key" name="consumer_key" value="{{ config.consumer_key }}" required>
+        <div class="help-text">Your M-Pesa API Consumer Key from Daraja portal</div>
+    </div>
+
+    <div class="form-group">
+        <label for="consumer_secret">Consumer Secret *</label>
+        <input type="password" id="consumer_secret" name="consumer_secret" value="{{ config.consumer_secret }}" required>
+        <div class="help-text">Your M-Pesa API Consumer Secret from Daraja portal</div>
+    </div>
+
+    <div class="form-group">
+        <label for="business_shortcode">Business Shortcode *</label>
+        <input type="text" id="business_shortcode" name="business_shortcode" value="{{ config.business_shortcode }}" required>
+        <div class="help-text">Your M-Pesa Business Shortcode (e.g., 174379)</div>
+    </div>
+
+    <div class="form-group">
+        <label for="passkey">Passkey *</label>
+        <input type="password" id="passkey" name="passkey" value="{{ config.passkey }}" required>
+        <div class="help-text">Your M-Pesa Lipa Na M-Pesa Online Passkey</div>
+    </div>
+
+    <div class="form-group">
+        <label for="callback_url">Callback URL *</label>
+        <input type="url" id="callback_url" name="callback_url" value="{{ config.callback_url }}" required placeholder="https://yourdomain.com/callback">
+        <div class="help-text">URL where M-Pesa will send payment notifications</div>
+    </div>
+
+    <button type="submit">Save Settings</button>
+</form>
+
+<div style="margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 5px;">
+    <h3 style="margin-bottom: 10px; color: #333;">How to get M-Pesa credentials:</h3>
+    <ol style="margin-left: 20px; color: #666; line-height: 1.8;">
+        <li>Visit <a href="https://developer.safaricom.co.ke" target="_blank" style="color: #667eea;">Safaricom Daraja Portal</a></li>
+        <li>Create an account or log in</li>
+        <li>Create a new app (select "Lipa Na M-Pesa Online")</li>
+        <li>Get your Consumer Key and Consumer Secret</li>
+        <li>For sandbox testing, use the provided test credentials</li>
+        <li>Configure your callback URL (can be ngrok for local testing)</li>
+    </ol>
+</div>
+{% endblock %}
