@@ -16,6 +16,12 @@ app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-producti
 CONFIG_FILE = 'config.json'
 
 
+@app.context_processor
+def inject_now():
+    """Inject current datetime into all templates"""
+    return {'now': datetime.now()}
+
+
 def load_config():
     """Load configuration from file"""
     if os.path.exists(CONFIG_FILE):
@@ -26,7 +32,8 @@ def load_config():
         'consumer_secret': '',
         'business_shortcode': '',
         'passkey': '',
-        'callback_url': ''
+        'callback_url': '',
+        'environment': 'sandbox'
     }
 
 
@@ -36,9 +43,10 @@ def save_config(config):
         json.dump(config, f, indent=4)
 
 
-def get_access_token(consumer_key, consumer_secret):
+def get_access_token(consumer_key, consumer_secret, environment='sandbox'):
     """Get M-Pesa access token"""
-    api_url = 'https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials'
+    base_url = 'https://sandbox.safaricom.co.ke' if environment == 'sandbox' else 'https://api.safaricom.co.ke'
+    api_url = f'{base_url}/oauth/v1/generate?grant_type=client_credentials'
     
     try:
         response = requests.get(api_url, auth=(consumer_key, consumer_secret))
@@ -72,16 +80,18 @@ def settings():
             'consumer_secret': request.form.get('consumer_secret', '').strip(),
             'business_shortcode': request.form.get('business_shortcode', '').strip(),
             'passkey': request.form.get('passkey', '').strip(),
-            'callback_url': request.form.get('callback_url', '').strip()
+            'callback_url': request.form.get('callback_url', '').strip(),
+            'environment': request.form.get('environment', 'sandbox').strip()
         }
         
-        # Validate that all fields are filled
-        if all(config.values()):
+        # Validate that required fields are filled
+        required_fields = ['consumer_key', 'consumer_secret', 'business_shortcode', 'passkey', 'callback_url']
+        if all(config.get(field) for field in required_fields):
             save_config(config)
             flash('Settings saved successfully!', 'success')
             return redirect(url_for('index'))
         else:
-            flash('All fields are required!', 'error')
+            flash('All required fields must be filled!', 'error')
     
     config = load_config()
     return render_template('settings.html', config=config)
@@ -120,8 +130,11 @@ def stk_push():
         phone_number = '254' + phone_number
     
     try:
+        # Get environment setting
+        environment = config.get('environment', 'sandbox')
+        
         # Get access token
-        access_token = get_access_token(config['consumer_key'], config['consumer_secret'])
+        access_token = get_access_token(config['consumer_key'], config['consumer_secret'], environment)
         if not access_token:
             return jsonify({
                 'success': False,
@@ -133,7 +146,8 @@ def stk_push():
         password = generate_password(config['business_shortcode'], config['passkey'], timestamp)
         
         # Prepare STK push request
-        api_url = 'https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest'
+        base_url = 'https://sandbox.safaricom.co.ke' if environment == 'sandbox' else 'https://api.safaricom.co.ke'
+        api_url = f'{base_url}/mpesa/stkpush/v1/processrequest'
         headers = {
             'Authorization': f'Bearer {access_token}',
             'Content-Type': 'application/json'
