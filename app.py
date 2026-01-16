@@ -2,7 +2,7 @@ import os
 import json
 import base64
 from datetime import datetime
-from flask import Flask, render_template, request, jsonify, redirect, url_for, flash, session
+from flask import Flask, render_template, request, jsonify, redirect, url_for, flash
 import requests
 from dotenv import load_dotenv
 
@@ -49,10 +49,11 @@ def get_access_token(consumer_key, consumer_secret, environment='sandbox'):
     api_url = f'{base_url}/oauth/v1/generate?grant_type=client_credentials'
     
     try:
-        response = requests.get(api_url, auth=(consumer_key, consumer_secret))
+        response = requests.get(api_url, auth=(consumer_key, consumer_secret), timeout=10)
         response.raise_for_status()
         return response.json().get('access_token')
-    except Exception as e:
+    except requests.RequestException as e:
+        app.logger.error(f"Failed to get access token: {str(e)}")
         return None
 
 
@@ -122,6 +123,20 @@ def stk_push():
             'message': 'Phone number and amount are required'
         }), 400
     
+    # Validate amount is numeric
+    try:
+        amount_int = int(amount)
+        if amount_int < 1:
+            return jsonify({
+                'success': False,
+                'message': 'Amount must be at least 1 KES'
+            }), 400
+    except (ValueError, TypeError):
+        return jsonify({
+            'success': False,
+            'message': 'Invalid amount. Please enter a valid number'
+        }), 400
+    
     # Format phone number (remove + and spaces, ensure it starts with 254)
     phone_number = phone_number.replace('+', '').replace(' ', '')
     if phone_number.startswith('0'):
@@ -158,7 +173,7 @@ def stk_push():
             'Password': password,
             'Timestamp': timestamp,
             'TransactionType': 'CustomerPayBillOnline',
-            'Amount': int(amount),
+            'Amount': amount_int,
             'PartyA': phone_number,
             'PartyB': config['business_shortcode'],
             'PhoneNumber': phone_number,
@@ -168,7 +183,7 @@ def stk_push():
         }
         
         # Make the request
-        response = requests.post(api_url, json=payload, headers=headers)
+        response = requests.post(api_url, json=payload, headers=headers, timeout=30)
         response_data = response.json()
         
         if response.status_code == 200 and response_data.get('ResponseCode') == '0':
@@ -184,16 +199,24 @@ def stk_push():
                 }
             })
         else:
+            error_msg = response_data.get('errorMessage', 'Failed to initiate STK push')
+            app.logger.error(f"STK push failed: {error_msg}, Response: {response_data}")
             return jsonify({
                 'success': False,
-                'message': response_data.get('errorMessage', 'Failed to initiate STK push'),
-                'data': response_data
+                'message': 'Failed to initiate STK push. Please check your configuration and try again.'
             }), 400
             
-    except Exception as e:
+    except requests.RequestException as e:
+        app.logger.error(f"STK push request error: {str(e)}")
         return jsonify({
             'success': False,
-            'message': f'Error: {str(e)}'
+            'message': 'Network error occurred. Please try again.'
+        }), 500
+    except Exception as e:
+        app.logger.error(f"STK push error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': 'An error occurred. Please try again.'
         }), 500
 
 
