@@ -51,6 +51,13 @@
 
 {% block extra_scripts %}
 <script>
+// Function to escape HTML to prevent XSS
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
 document.getElementById('stkForm').addEventListener('submit', async function(e) {
     e.preventDefault();
     
@@ -78,17 +85,19 @@ document.getElementById('stkForm').addEventListener('submit', async function(e) 
         loading.classList.remove('show');
         
         if (data.success) {
+            const detailsHtml = data.data ? `
+                <div style="margin-top: 10px; font-size: 14px;">
+                    <strong>Details:</strong><br>
+                    Merchant Request ID: ${escapeHtml(data.data.merchant_request_id || 'N/A')}<br>
+                    Checkout Request ID: ${escapeHtml(data.data.checkout_request_id || 'N/A')}<br>
+                    ${escapeHtml(data.data.customer_message || '')}
+                </div>
+            ` : '';
+            
             resultDiv.innerHTML = `
                 <div class="alert alert-success">
-                    ✅ ${data.message}
-                    ${data.data ? `
-                        <div style="margin-top: 10px; font-size: 14px;">
-                            <strong>Details:</strong><br>
-                            Merchant Request ID: ${data.data.merchant_request_id || 'N/A'}<br>
-                            Checkout Request ID: ${data.data.checkout_request_id || 'N/A'}<br>
-                            ${data.data.customer_message || ''}
-                        </div>
-                    ` : ''}
+                    ✅ ${escapeHtml(data.message)}
+                    ${detailsHtml}
                 </div>
             `;
             // Reset form
@@ -98,7 +107,7 @@ document.getElementById('stkForm').addEventListener('submit', async function(e) 
         } else {
             resultDiv.innerHTML = `
                 <div class="alert alert-error">
-                    ❌ ${data.message}
+                    ❌ ${escapeHtml(data.message)}
                 </div>
             `;
         }
@@ -106,7 +115,7 @@ document.getElementById('stkForm').addEventListener('submit', async function(e) 
         loading.classList.remove('show');
         resultDiv.innerHTML = `
             <div class="alert alert-error">
-                ❌ Error: ${error.message}
+                ❌ Error: ${escapeHtml(error.message)}
             </div>
         `;
     } finally {
