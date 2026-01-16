@@ -83,6 +83,8 @@ http://localhost:5000
 
 3. Configure your M-Pesa credentials in the Settings page (if not already done)
 
+  - The callback URL field now auto-fills with your workspace URL (for example, Codespaces will use `https://<codespace>-5000.app.github.dev`). You can override it with any reachable HTTPS endpoint if needed.
+
 4. Return to the Home page and fill in the payment details:
    - Phone Number (format: 254XXXXXXXXX or 07XXXXXXXX)
    - Amount (in KES)

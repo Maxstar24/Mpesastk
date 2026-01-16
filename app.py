@@ -16,6 +16,23 @@ app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-producti
 CONFIG_FILE = 'config.json'
 
 
+def get_default_callback_url():
+    """Derive a sensible default callback URL based on the workspace."""
+    # User-provided override takes precedence if present
+    explicit = os.environ.get('WORKSPACE_URL') or os.environ.get('CALLBACK_URL')
+    if explicit:
+        return explicit.rstrip('/')
+
+    # GitHub Codespaces pattern: https://<codespace>-<port>.<domain>
+    codespace = os.environ.get('CODESPACE_NAME')
+    forwarding_domain = os.environ.get('GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN')
+    port = os.environ.get('PORT', '5000')
+    if codespace and forwarding_domain:
+        return f"https://{codespace}-{port}.{forwarding_domain}"
+
+    return ''
+
+
 @app.context_processor
 def inject_now():
     """Inject current datetime into all templates"""
@@ -26,15 +43,22 @@ def load_config():
     """Load configuration from file"""
     if os.path.exists(CONFIG_FILE):
         with open(CONFIG_FILE, 'r') as f:
-            return json.load(f)
-    return {
-        'consumer_key': '',
-        'consumer_secret': '',
-        'business_shortcode': '',
-        'passkey': '',
-        'callback_url': '',
-        'environment': 'sandbox'
-    }
+            config = json.load(f)
+    else:
+        config = {
+            'consumer_key': '',
+            'consumer_secret': '',
+            'business_shortcode': '',
+            'passkey': '',
+            'callback_url': get_default_callback_url(),
+            'environment': 'sandbox'
+        }
+
+    # Ensure callback URL always has a sensible default for the workspace
+    if not config.get('callback_url'):
+        config['callback_url'] = get_default_callback_url()
+
+    return config
 
 
 def save_config(config):
